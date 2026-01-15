@@ -48,4 +48,5 @@ properties:
     description: Whether this processor should track remainders for sub-pixel movements
 
   "#input-processor-cells":
+    type: int
     const: 0
