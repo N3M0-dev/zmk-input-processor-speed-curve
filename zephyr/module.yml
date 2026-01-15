@@ -1,3 +1,4 @@
 name: zmk-input-processor-speed-curve
-cmake-ext: True
-kconfig-ext: True
+build:
+  cmake-ext: True
+  kconfig-ext: True
