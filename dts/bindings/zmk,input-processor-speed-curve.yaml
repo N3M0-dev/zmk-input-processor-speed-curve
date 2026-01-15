@@ -1,0 +1,51 @@
+# Copyright (c) 2024 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  Input processor that applies a custom piecewise linear speed curve based on elapsed time.
+  Define curve points as pairs of [time_ms, speed_px_per_sec].
+  Speed is interpolated linearly between points.
+
+compatible: "zmk,input-processor-speed-curve"
+
+include: base.yaml
+
+properties:
+  type:
+    type: int
+    required: true
+    description: The type of the input event (INPUT_EV_REL for mouse movement)
+
+  codes:
+    type: array
+    required: true
+    description: |
+      Array of input event codes to process (e.g., INPUT_REL_X, INPUT_REL_Y).
+      Only events with matching type and code will be processed.
+
+  curve-points:
+    type: array
+    required: true
+    description: |
+      Array of [time_ms, speed_px_per_sec] pairs defining the speed curve.
+      Must have at least 2 points. First point should be at time 0.
+      Speed is interpolated linearly between points.
+      Example: <0 50>, <300 200>, <1000 800>
+      - At 0ms: 50 px/s
+      - At 300ms: 200 px/s  
+      - At 1000ms: 800 px/s
+      - Between points: linear interpolation
+
+  trigger-period-ms:
+    type: int
+    default: 16
+    description: |
+      Period in milliseconds between movement events (default 16ms = ~62.5Hz).
+      Used to convert speed (px/sec) to movement (px/event).
+
+  track-remainders:
+    type: boolean
+    description: Whether this processor should track remainders for sub-pixel movements
+
+  "#input-processor-cells":
+    const: 0

@@ -1,0 +1,9 @@
+# Copyright (c) 2024 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+config ZMK_INPUT_PROCESSOR_SPEED_CURVE
+    bool "Enable custom speed curve input processor"
+    default y
+    help
+      Enable the speed curve input processor which applies a custom
+      piecewise linear acceleration curve based on elapsed time.
