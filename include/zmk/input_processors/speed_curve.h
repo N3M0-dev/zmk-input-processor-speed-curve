@@ -24,8 +24,8 @@ struct zip_speed_curve_config {
  * @brief Runtime data for speed curve input processor
  */
 struct zip_speed_curve_data {
-    int64_t start_time;             // Timestamp when movement started (uptime_get())
-    bool is_active;                 // Whether movement is currently active
+    int64_t x_start_time;           // Timestamp when X axis movement started (uptime_get())
+    int64_t y_start_time;           // Timestamp when Y axis movement started (uptime_get())
     int8_t last_x_direction;        // Last X direction: -1, 0, 1
     int8_t last_y_direction;        // Last Y direction: -1, 0, 1
 };

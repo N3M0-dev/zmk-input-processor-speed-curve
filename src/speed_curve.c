@@ -100,6 +100,7 @@ static int zip_speed_curve_handle_event(const struct device *dev,
     // Determine if this is X or Y axis (assuming INPUT_REL_X and INPUT_REL_Y)
     bool is_x_axis = (event->code == 0);  // INPUT_REL_X = 0, INPUT_REL_Y = 1
     int8_t *last_direction = is_x_axis ? &data->last_x_direction : &data->last_y_direction;
+    int64_t *axis_start_time = is_x_axis ? &data->x_start_time : &data->y_start_time;
     
     // Determine current direction
     int8_t current_direction = (value > 0) ? 1 : (value < 0) ? -1 : 0;
@@ -107,33 +108,29 @@ static int zip_speed_curve_handle_event(const struct device *dev,
     // Check if movement stopped (value == 0)
     if (value == 0) {
         *last_direction = 0;
-        
-        // Check if both axes stopped - if so, reset timing
-        if (data->last_x_direction == 0 && data->last_y_direction == 0) {
-            data->is_active = false;
-            LOG_DBG("Movement stopped, resetting timing");
-        }
+        *axis_start_time = 0;
+        LOG_DBG("Movement stopped on axis, resetting timing");
         return 0;
     }
     
-    // Check if direction changed - reset timing
+    // Check if direction changed - reset timing for this axis
     if (*last_direction != 0 && *last_direction != current_direction) {
-        data->is_active = false;
+        *axis_start_time = 0;
         LOG_DBG("Direction changed, resetting timing");
     }
     
     *last_direction = current_direction;
     
-    // Start timing if not already active
-    if (!data->is_active) {
-        data->start_time = k_uptime_get();
-        data->is_active = true;
-        LOG_DBG("Movement started at %lld ms", data->start_time);
+    // Start timing if not already started for this axis
+    // Similar to ZMK's set_start_times_for_activity_1d logic
+    if (*axis_start_time == 0) {
+        *axis_start_time = k_uptime_get();
+        LOG_DBG("Movement started at %lld ms", *axis_start_time);
     }
     
-    // Calculate elapsed time
+    // Calculate elapsed time for this specific axis
     int64_t current_time = k_uptime_get();
-    int64_t elapsed_ms = current_time - data->start_time;
+    int64_t elapsed_ms = current_time - *axis_start_time;
     
     // Calculate speed from curve
     int32_t speed_px_per_sec = calculate_speed(cfg, elapsed_ms);
@@ -162,8 +159,8 @@ static int zip_speed_curve_handle_event(const struct device *dev,
 static int zip_speed_curve_init(const struct device *dev) {
     struct zip_speed_curve_data *data = dev->data;
     
-    data->is_active = false;
-    data->start_time = 0;
+    data->x_start_time = 0;
+    data->y_start_time = 0;
     data->last_x_direction = 0;
     data->last_y_direction = 0;
     
