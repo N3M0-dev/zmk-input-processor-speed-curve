@@ -28,6 +28,16 @@ static bool code_matches(const struct zip_speed_curve_config *cfg, uint16_t code
 }
 
 /**
+ * @brief Track remainder for sub-pixel movements
+ * Similar to ZMK's track_remainder function
+ */
+static void track_remainder(float *move, float *remainder) {
+    float new_move = *move + *remainder;
+    *remainder = new_move - (int)new_move;
+    *move = (int)new_move;
+}
+
+/**
  * @brief Calculate speed at given elapsed time using piecewise linear interpolation
  * 
  * @param cfg Configuration containing curve points
@@ -109,6 +119,12 @@ static int zip_speed_curve_handle_event(const struct device *dev,
     if (value == 0) {
         *last_direction = 0;
         *axis_start_time = 0;
+        // Clear remainder when movement stops
+        if (is_x_axis) {
+            data->x_remainder = 0.0f;
+        } else {
+            data->y_remainder = 0.0f;
+        }
         LOG_DBG("Movement stopped on axis, resetting timing");
         return 0;
     }
@@ -116,6 +132,12 @@ static int zip_speed_curve_handle_event(const struct device *dev,
     // Check if direction changed - reset timing for this axis
     if (*last_direction != 0 && *last_direction != current_direction) {
         *axis_start_time = 0;
+        // Clear remainder when direction changes
+        if (is_x_axis) {
+            data->x_remainder = 0.0f;
+        } else {
+            data->y_remainder = 0.0f;
+        }
         LOG_DBG("Direction changed, resetting timing");
     }
     
@@ -135,17 +157,18 @@ static int zip_speed_curve_handle_event(const struct device *dev,
     // Calculate speed from curve
     int32_t speed_px_per_sec = calculate_speed(cfg, elapsed_ms);
     
-    // Convert speed (px/sec) to movement (px/event)
+    // Convert speed (px/sec) to movement (px/event) using float math for precision
     // movement = speed * trigger_period_ms / 1000
-    int32_t movement = (speed_px_per_sec * cfg->trigger_period_ms) / 1000;
+    float movement = (float)speed_px_per_sec * cfg->trigger_period_ms / 1000.0f;
     
-    // Ensure at least 1 pixel movement if speed > 0
-    if (movement == 0 && speed_px_per_sec > 0) {
-        movement = 1;
+    // Handle remainder tracking if enabled
+    if (cfg->track_remainders) {
+        float *remainder = is_x_axis ? &data->x_remainder : &data->y_remainder;
+        track_remainder(&movement, remainder);
     }
     
     // Apply direction
-    event->value = current_direction * movement;
+    event->value = current_direction * (int32_t)movement;
     
     LOG_DBG("Speed curve: elapsed=%lld ms, speed=%d px/s, movement=%d px/event (original=%d)",
             elapsed_ms, speed_px_per_sec, event->value, value);
@@ -163,6 +186,8 @@ static int zip_speed_curve_init(const struct device *dev) {
     data->y_start_time = 0;
     data->last_x_direction = 0;
     data->last_y_direction = 0;
+    data->x_remainder = 0.0f;
+    data->y_remainder = 0.0f;
     
     LOG_DBG("Initialized speed curve input processor: %s", dev->name);
     
@@ -183,6 +208,7 @@ static const struct zmk_input_processor_driver_api zip_speed_curve_driver_api = 
         .curve_points = zip_speed_curve_points_##n,                                    \
         .curve_points_len = DT_INST_PROP_LEN(n, curve_points),                         \
         .trigger_period_ms = DT_INST_PROP(n, trigger_period_ms),                       \
+        .track_remainders = DT_INST_PROP_OR(n, track_remainders, false),               \
     };                                                                                  \
     static struct zip_speed_curve_data zip_speed_curve_data_##n = {};                 \
     DEVICE_DT_INST_DEFINE(n, zip_speed_curve_init, NULL,                              \

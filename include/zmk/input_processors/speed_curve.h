@@ -18,6 +18,7 @@ struct zip_speed_curve_config {
     const int32_t *curve_points;    // Array of [time_ms, speed] pairs
     size_t curve_points_len;        // Number of curve points (pairs)
     uint16_t trigger_period_ms;     // Period between events in ms
+    bool track_remainders;          // Whether to track sub-pixel remainders
 };
 
 /**
@@ -28,4 +29,6 @@ struct zip_speed_curve_data {
     int64_t y_start_time;           // Timestamp when Y axis movement started (uptime_get())
     int8_t last_x_direction;        // Last X direction: -1, 0, 1
     int8_t last_y_direction;        // Last Y direction: -1, 0, 1
+    float x_remainder;              // Sub-pixel remainder for X axis
+    float y_remainder;              // Sub-pixel remainder for Y axis
 };
