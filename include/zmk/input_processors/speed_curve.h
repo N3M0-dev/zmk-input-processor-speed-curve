@@ -21,12 +21,17 @@ struct zip_speed_curve_config {
     bool track_remainders;          // Whether to track sub-pixel remainders
 };
 
+// Timeout threshold: if no events for this many ms, consider movement stopped
+#define ZIP_SPEED_CURVE_TIMEOUT_MS 50
+
 /**
  * @brief Runtime data for speed curve input processor
  */
 struct zip_speed_curve_data {
     int64_t x_start_time;           // Timestamp when X axis movement started (uptime_get())
     int64_t y_start_time;           // Timestamp when Y axis movement started (uptime_get())
+    int64_t x_last_event_time;      // Timestamp of last X axis event (for timeout detection)
+    int64_t y_last_event_time;      // Timestamp of last Y axis event (for timeout detection)
     int8_t last_x_direction;        // Last X direction: -1, 0, 1
     int8_t last_y_direction;        // Last Y direction: -1, 0, 1
     float x_remainder;              // Sub-pixel remainder for X axis

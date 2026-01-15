@@ -111,14 +111,33 @@ static int zip_speed_curve_handle_event(const struct device *dev,
     bool is_x_axis = (event->code == 0);  // INPUT_REL_X = 0, INPUT_REL_Y = 1
     int8_t *last_direction = is_x_axis ? &data->last_x_direction : &data->last_y_direction;
     int64_t *axis_start_time = is_x_axis ? &data->x_start_time : &data->y_start_time;
+    int64_t *axis_last_event_time = is_x_axis ? &data->x_last_event_time : &data->y_last_event_time;
     
     // Determine current direction
     int8_t current_direction = (value > 0) ? 1 : (value < 0) ? -1 : 0;
+    
+    // Check if movement has timed out (no events for a while = user released key)
+    int64_t current_time = k_uptime_get();
+    if (*axis_last_event_time != 0 && 
+        (current_time - *axis_last_event_time) > ZIP_SPEED_CURVE_TIMEOUT_MS) {
+        // Movement timed out, reset timing
+        *axis_start_time = 0;
+        if (is_x_axis) {
+            data->x_remainder = 0.0f;
+        } else {
+            data->y_remainder = 0.0f;
+        }
+        LOG_DBG("Movement timeout detected, resetting acceleration");
+    }
+    
+    // Update last event time
+    *axis_last_event_time = current_time;
     
     // Check if movement stopped (value == 0)
     if (value == 0) {
         *last_direction = 0;
         *axis_start_time = 0;
+        *axis_last_event_time = 0;
         // Clear remainder when movement stops
         if (is_x_axis) {
             data->x_remainder = 0.0f;
@@ -151,7 +170,6 @@ static int zip_speed_curve_handle_event(const struct device *dev,
     }
     
     // Calculate elapsed time for this specific axis
-    int64_t current_time = k_uptime_get();
     int64_t elapsed_ms = current_time - *axis_start_time;
     
     // Calculate speed from curve
@@ -184,6 +202,8 @@ static int zip_speed_curve_init(const struct device *dev) {
     
     data->x_start_time = 0;
     data->y_start_time = 0;
+    data->x_last_event_time = 0;
+    data->y_last_event_time = 0;
     data->last_x_direction = 0;
     data->last_y_direction = 0;
     data->x_remainder = 0.0f;
